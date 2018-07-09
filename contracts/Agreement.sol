@@ -1,7 +1,7 @@
 pragma solidity ^0.4.24;
 
 
-contract Agreement{
+contract AgreementContract{
 
     enum AgreementStatus{Requested, Paid, Complete}
 
@@ -20,9 +20,36 @@ contract Agreement{
         return (msg.sender, _seller, _amount, uint(AgreementStatus.Requested));
     }
 
-    function payAgreement(uint id) payable public returns(string){                
-        address _buyer = msg.sender; 
-
+    function payAgreement(uint id) payable public returns(string){   
+       // require(agreements[id].status == AgreementStatus.Requested, "Ride not in the correct state");             
+        string memory message; 
+        if(msg.sender == agreements[id].buyer){
+            if(msg.value == agreements[id].amount){
+                agreements[id].status == AgreementStatus.Paid;
+                message = "Agreement Paid For";
+            }
+            else{
+                revert("Incorrect Amount");
+            }
+        }else
+        {
+            revert("Not the buyer");
+        }
     }
+
+    function completeAgreement(uint id) public returns(string){
+        
+        string memory message; 
+        address _seller = agreements[id].seller;
+        if(msg.sender == _seller){
+            agreements[id].status == AgreementStatus.Complete;
+            _seller.transfer(agreements[id].amount);
+            message = "Agreement Complete";
+        }
+        else{
+            revert("Not the seller");
+        }
+    }
+    
 
 }
