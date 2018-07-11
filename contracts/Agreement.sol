@@ -13,20 +13,22 @@ contract AgreementContract{
     }
 
     mapping(uint => Agreement) public agreements; 
+    event agreementEvents(uint id,address buyer, address seller, uint amount, uint status);
+
     uint noAgreements; 
 
     function newAgreement(address _seller, uint256 _amount) public returns(address, address, uint256, uint){
+        noAgreements++;
         agreements[noAgreements] = Agreement(msg.sender, _seller, _amount, AgreementStatus.Requested);
+        emit agreementEvents(noAgreements,msg.sender, _seller, _amount, uint(AgreementStatus.Requested));
         return (msg.sender, _seller, _amount, uint(AgreementStatus.Requested));
     }
 
-    function payAgreement(uint id) payable public returns(string){   
-       // require(agreements[id].status == AgreementStatus.Requested, "Ride not in the correct state");             
-        string memory message; 
+    function payAgreement(uint id) payable public{   
+        
         if(msg.sender == agreements[id].buyer){
             if(msg.value == agreements[id].amount){
                 agreements[id].status == AgreementStatus.Paid;
-                message = "Agreement Paid For";
             }
             else{
                 revert("Incorrect Amount");
@@ -36,6 +38,7 @@ contract AgreementContract{
             revert("Not the buyer");
         }
     }
+
 
     function completeAgreement(uint id) public returns(string){
         

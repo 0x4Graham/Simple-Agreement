@@ -1,0 +1,200 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>
+        myDapp
+    </title>
+    <script language="javascript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script language="javascript" src="./js/web3.min.js"></script>
+    <script language="javascript" src="./js/abi.js"></script>
+
+    <script language="javascript" type="text/javascript" src="/node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
+    <link href="node_modules/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="./js/site.css" rel="stylesheet">
+</head>
+
+<body>
+    <nav class="navbar navbar-inverse navbar-fixed-top">
+        <div class="container">
+            <div class="navbar-header">
+                <a class="navbar-brand" href="#">Uber App</a>
+            </div>
+            <div id="navbar" class="collapse navbar-collapse">
+                <ul class="nav navbar-nav">
+                    <li class="active">
+                        <a href="#AgreementsDiv" data-toggle="tab">Agreements</a>
+                    </li>
+                </ul>
+            </div>
+            <!--/.nav-collapse -->
+        </div>
+    </nav>
+    <div class="tab-content">
+        <div id="AgreementsDiv" class="tab-pane fade blocks  in active">
+            <div class="container">
+                <div class="col-md-8">
+                    <h3>New Agreement</h3>
+                    </br>
+                    <div id="accountInfoDiv"></div>
+                    <div id="addAgreementsDiv">
+                        <lablel>Seller Address</lablel>
+                        </br>
+                        <input type="text" class="form-control" id="addsellerAddress">
+                        </br>
+                        <lablel>Amount</lablel>
+                        </br>
+                        <input type="text" class="form-control" id="addAmount">
+                        </br>
+                        <button type="button" class="btn btn-default" onclick="createAgreement()">Create Agreement</button>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div>
+                        <h3>Agreements</h3>
+                    </div>
+                    <div id="currentAgreementDiv">
+
+                    </div>
+                    <div id="actionsDiv">
+
+                    </div>
+                </div>
+                <br>
+
+
+            </div>
+        </div>
+    </div>
+
+
+
+
+    </div>
+
+</body>
+
+</html>
+
+<script>
+    var userAccount;
+
+
+    var agreementAbiInit = web3.eth.contract(agreementAbi);
+    var agreementContract = agreementAbiInit.at("0x345ca3e014aaf5dca488057592ee47305d9b3e10");
+    var agreementEvents = agreementContract.agreementEvents();
+
+
+    function getStatus(id) {
+        var status;
+        if (id == 0) {
+            status = "Requested";
+        } else if (id == 1) {
+            status = "Paid";
+        } else if (id == 2) {
+            status = "Complete";
+        } else {
+            status = "unknown";
+        }
+        return status;
+    }
+
+    function createAgreement() {
+        var seller = $("#addsellerAddress").val();
+        var amount = $("#addAmount").val();
+        agreementContract.newAgreement(seller, amount, function (err, res) {
+            if (!err)
+                console.log(res)
+            else
+                console.log(err);
+        })
+    }
+
+
+    function payForAgreement(id, value) {
+        var weiValue = web3.toWei(web3.toBigNumber(value), 'ether');
+        agreementContract.payAgreement(id, { value: weiValue }, function (err, res) {
+            if (!err)
+                console.log(res)
+            else
+                console.log(err);
+        });
+    }
+
+    function completeAgreement(id) {
+        agreementContract.completeAgreement(id, function (err, res) {
+            if (!err)
+                console.log(res)
+            else
+                console.log(err);
+        })
+    }
+
+
+    window.addEventListener('load', function () {
+
+        if (typeof web3 !== 'undefined') {
+            web3js = new Web3(web3.currentProvider);
+        } else {
+
+        }
+        checkUserAccount();
+    })
+
+    function checkUserAccount() {
+        var accountInterval = setInterval(function () {
+            // Check if account has changed
+            if (web3.eth.accounts[0] !== userAccount) {
+                userAccount = web3.eth.accounts[0];
+                $("#accountInfoDiv").html("Your account: " + userAccount);
+                callEvent();
+            }
+        }, 100);
+    }
+
+
+
+    function callEvent() {
+
+    agreementEvents.watch(function (error, result) {
+        if (!error) {
+            var activeAgreement = result.args.id;
+            var agreementValue = result.args.amount;
+
+            var status = getStatus(result.args.status);
+            //            $("#RequestRideDiv").removeClass("active");
+            //            $("#ridesDiv").addClass("active");
+            $("#currentAgreementDiv").empty();
+            $("#currentAgreementDiv").append(`<ul>
+                                        <li id="agreementid">Agreement Id:` + activeAgreement.toString() + `</li>
+                                        <li id="buyeraddress">Buyer Address: ` + result.args.buyer + `</li>
+                                        <li id="selleraddress">Seller Address: ` + result.args.seller + `</li>
+                                        <li id="amountDiv">Value: ` + agreementValue.toString() + ` ether</li>
+                                        <li id="rid
+                                        estatus">Agreement Status: ` + status + `</li>
+                                    </ul>`);
+            if (status == "Requested" && result.args.buyer == userAccount) {
+                $("#actionsDiv").empty();
+                $("#actionsDiv").append(`
+            <button  type="button" class="btn btn-default" onclick="payForAgreement(` + activeAgreement + `, ` + agreementValue + `)">Pay for agreement</button>`)
+            } else if (status == "Paid" && result.args.buyer == userAccount) {
+                $("#actionsDiv").empty();
+                $("#actionsDiv").append("No actions, waiting for seller to complete");
+            } else if (status == "Paid" && result.args.seller == userAccount) {
+                $("#actionsDiv").empty();
+               $("#actionsDiv").append(`<button  type="button" class="btn btn-default" onclick="completeAgreement(` + activeAgreement + `)">Complete Agreement</button>`);
+            } else if (status == "Complete"){
+                $("#actionsDiv").empty();
+                $("#actionsDiv").append("Agreement Complete");
+            } else{
+                $("#actionsDiv").append("Nothing");
+            }
+        } else {
+            console.log(error);
+        }
+    });
+}
+</script>
